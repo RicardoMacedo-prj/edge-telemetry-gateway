@@ -1,20 +1,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
-
-struct CarStatus
-{
-    double rpm;
-    double speed;
-    double coolantTemp;
-};
-
-enum class CarState
-{
-    IDLE,
-    ACCELERATING,
-    DECELERATING
-};
+#include "car.hpp"
 
 int main()
 {
