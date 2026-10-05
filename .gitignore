@@ -39,6 +39,7 @@
 *.app
 car
 encoder
+decoder
 storage
 test_*
 
@@ -76,7 +77,3 @@ Testing/
 
 # personal planning files
 IMPLEMENTATION_PLAN.md
-
-# Ignore excutable files
-car
-encoder
