@@ -37,6 +37,13 @@
 *.exe
 *.out
 *.app
+car
+encoder
+storage
+test_*
+
+# Data files
+*.csv
 
 # Build directories
 build/
