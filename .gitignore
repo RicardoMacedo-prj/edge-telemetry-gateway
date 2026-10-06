@@ -41,6 +41,7 @@ car
 encoder
 decoder
 storage
+mqtt_test
 test_*
 
 # Data files
