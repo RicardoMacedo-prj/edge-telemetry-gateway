@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // Car status structure
 struct CarStatus
 {

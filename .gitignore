@@ -42,6 +42,8 @@ encoder
 decoder
 storage
 mqtt_test
+main
+gateway
 test_*
 
 # Data files

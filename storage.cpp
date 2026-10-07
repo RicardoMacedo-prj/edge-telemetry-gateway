@@ -1,9 +1,7 @@
+#include "storage.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
-
-// Maximum number of telemetry records retained in local storage
-const int MAX_RECORDS = 50; 
 
 /**
  * @brief Counts the total number of lines/records currently stored in telemetry.csv.
@@ -31,17 +29,17 @@ int count_csv_records()
  * @brief Appends a telemetry record to telemetry.csv.
  * Enforces a strict FIFO retention policy by evicting the oldest record when full.
  */
-bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp)
+bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp, int max_records)
 {
     // FIFO eviction: if buffer is at capacity, discard the oldest line
-    if (count_csv_records() >= MAX_RECORDS)
+    if (count_csv_records() >= max_records)
     {
         std::cerr << "Maximum record limit reached. Evicting oldest record." << std::endl;
         std::ifstream file("telemetry.csv");
 
         std::string first_line;
         std::getline(file, first_line); // Read and discard oldest record
-        
+
         std::string line;
         std::string remaining_data;
         while (std::getline(file, line))
@@ -92,6 +90,84 @@ void read_telemetry_csv()
 }
 
 /**
+ * @brief Reads up to max_records stored records from telemetry.csv to prepare an MQTT batch.
+ */
+std::pair<std::string, int> get_data_to_publish(int max_records)
+{
+    std::ifstream file("telemetry.csv");
+
+    std::string data_to_publish;
+    std::string line;
+    int counter = 0;
+
+    // Read up to max_records from the top of the file
+    while (std::getline(file, line) && counter < max_records)
+    {
+        data_to_publish += line + "\n";
+        counter++;
+    }
+
+    file.close();
+    return {data_to_publish, counter};
+}
+
+/**
+ * @brief Deletes successfully transmitted records from the beginning of telemetry.csv.
+ */
+void remove_sent_data(int counter)
+{
+    std::ifstream file("telemetry.csv");
+
+    std::string data_to_rewrite;
+    std::string line;
+
+    // Skip the first 'counter' lines that were successfully published
+    for (int i = 0; i < counter && std::getline(file, line); i++)
+    {
+    }
+
+    // Accumulate the remaining unsent lines
+    while (std::getline(file, line))
+    {
+        data_to_rewrite += line + "\n";
+    }
+
+    file.close();
+
+    // Overwrite the file with only the remaining un-transmitted data
+    std::ofstream file_out("telemetry.csv", std::ios::trunc);
+    file_out << data_to_rewrite;
+    file_out.close();
+}
+
+/**
+ * @brief Scans telemetry.csv to determine the highest existing record ID.
+ * Used during startup so new records can continue auto-incrementing sequentially.
+ * @return Highest record ID found, or -1 if the file is empty or missing.
+ */
+long long get_max_id()
+{
+    std::ifstream file("telemetry.csv");
+    if (!file.is_open())
+    {
+        std::cerr << "Failed to open telemetry.csv!" << std::endl;
+        return -1;
+    }
+
+    long long max_id = -1;
+    std::string line;
+    std::cout << "Telemetry Data from CSV:" << std::endl;
+
+    while (std::getline(file, line))
+    {
+        std::cout << line << std::endl;
+        max_id = std::max(max_id, std::stoll(line.substr(0, line.find(','))));
+    }
+    file.close();
+    return max_id;
+}
+
+/**
  * @brief Clears all records from telemetry.csv by truncating the file to zero bytes.
  */
 void clear_telemetry_csv()
@@ -104,29 +180,4 @@ void clear_telemetry_csv()
     }
     file.close();
     std::cout << "Telemetry CSV cleared." << std::endl;
-}
-
-int main()
-{
-    // Example telemetry data
-    int id = 1;
-    long long timestamp = 1622547800;
-    double rpm = 2500.0;
-    double speed = 85.0;
-    double coolantTemp = 88.0;
-
-    // Test saving telemetry record
-    if (save_telemetry_csv(id, timestamp, rpm, speed, coolantTemp))
-    {
-        std::cout << "Telemetry data saved successfully!" << std::endl;
-    }
-    else
-    {
-        std::cerr << "Failed to save telemetry data." << std::endl;
-    }
-
-    read_telemetry_csv();  // Read and display stored telemetry
-    clear_telemetry_csv(); // Clean buffer after verification
-
-    return 0;
 }
