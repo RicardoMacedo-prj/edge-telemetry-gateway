@@ -148,7 +148,7 @@ int main()
             sendto(sock, sensorFrame.data, sizeof(sensorFrame.data), 0, (struct sockaddr *)&addr, sizeof(addr));
         }
 
-        // Live dashboard telemetry printout overwriting current line (\r)
+        // Live dashboard telemetry printout overwriting current line
         std::cout << "\r[Vehicle Running] "
                   << "RPM: " << static_cast<int>(carStatus.rpm) << "   "
                   << " | Speed: " << static_cast<int>(carStatus.speed) << " km/h   "
