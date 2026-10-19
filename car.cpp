@@ -12,7 +12,7 @@
 std::atomic<bool> running{true};
 
 // Signal handler for graceful shutdown on Ctrl+C
-void handle_sigint(int signal)
+void handle_sigint(int /*signal*/)
 {
     std::cout << "\n[Shutdown] Stopping cleanly..." << std::endl;
     running = false;
