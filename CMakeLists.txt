@@ -24,3 +24,16 @@ add_executable(gateway
 
 # Link Mosquitto library to gateway
 target_link_libraries(gateway PRIVATE ${MOSQUITTO_LIB})
+
+# Enable testing support
+enable_testing()
+
+# CAN decoder test executable
+add_executable(test_can tests/test_can.cpp decoder.cpp)
+target_include_directories(test_can PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME TestCan COMMAND test_can)
+
+# Storage test executable
+add_executable(test_storage tests/test_storage.cpp storage.cpp)
+target_include_directories(test_storage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME TestStorage COMMAND test_storage)
