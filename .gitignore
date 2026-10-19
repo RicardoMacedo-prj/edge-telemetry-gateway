@@ -44,7 +44,7 @@ storage
 mqtt_test
 main
 gateway
-test_*
+/test_*
 
 # Data files
 *.csv
