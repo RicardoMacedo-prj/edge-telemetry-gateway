@@ -35,16 +35,16 @@ void on_disconnect(struct mosquitto * /*mosq*/, void *userdata, int /*rc*/)
 /**
  * @brief Publishes buffered telemetry records to the MQTT broker in batches.
  *
- * Reads up to max_records from telemetry.csv and transmits them in a single MQTT payload
+ * Reads up to max_chunk_size from telemetry.csv and transmits them in a single MQTT payload
  * with QoS 1. Upon successful publication, removes the transmitted records from the file
  * to prevent duplicate sends and free storage space.
  *
  * @param mosq Active Mosquitto client instance.
- * @param max_records Maximum number of records to retrieve in the batch.
+ * @param max_chunk_size Maximum number of records to retrieve in the batch.
  */
-void send_telemetry(struct mosquitto *mosq, int max_records)
+void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
 {
-    auto [data, counter] = get_data_to_publish(max_records);
+    auto [data, counter] = get_data_to_publish(max_chunk_size);
 
     if (data.empty())
     {

@@ -29,11 +29,11 @@ void on_disconnect(struct mosquitto *mosq, void *userdata, int rc);
 /**
  * @brief Reads a pending batch from local storage and publishes it via MQTT.
  * 
- * Retrieves up to max_records via get_data_to_publish() and publishes them to the
+ * Retrieves up to max_chunk_size records via get_data_to_publish() and publishes them to the
  * "car/telemetry" topic with QoS 1. On successful transmission, calls remove_sent_data()
  * to delete the transmitted batch from local disk.
  * 
  * @param mosq Active Mosquitto client instance.
- * @param max_records Maximum number of records to retrieve in the batch (defaults to 50).
+ * @param max_chunk_size Maximum number of records to retrieve in the batch (defaults to 100).
  */
-void send_telemetry(struct mosquitto *mosq, int max_records = 50);
+void send_telemetry(struct mosquitto *mosq, int max_chunk_size = 100);
