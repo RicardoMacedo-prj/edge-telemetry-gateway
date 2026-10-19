@@ -29,10 +29,10 @@ int count_csv_records()
  * @brief Appends a telemetry record to telemetry.csv.
  * Enforces a strict FIFO retention policy by evicting the oldest record when full.
  */
-bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp, int max_records)
+bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp, int max_storage_records)
 {
     // FIFO eviction: if buffer is at capacity, discard the oldest line
-    if (count_csv_records() >= max_records)
+    if (count_csv_records() >= max_storage_records)
     {
         std::cerr << "Maximum record limit reached. Evicting oldest record." << std::endl;
         std::ifstream file("telemetry.csv");
@@ -90,9 +90,9 @@ void read_telemetry_csv()
 }
 
 /**
- * @brief Reads up to max_records stored records from telemetry.csv to prepare an MQTT batch.
+ * @brief Reads up to max_chunk_size stored records from telemetry.csv to prepare an MQTT batch.
  */
-std::pair<std::string, int> get_data_to_publish(int max_records)
+std::pair<std::string, int> get_data_to_publish(int max_chunk_size)
 {
     std::ifstream file("telemetry.csv");
 
@@ -100,8 +100,8 @@ std::pair<std::string, int> get_data_to_publish(int max_records)
     std::string line;
     int counter = 0;
 
-    // Read up to max_records from the top of the file
-    while (std::getline(file, line) && counter < max_records)
+    // Read up to max_chunk_size records from the top of the file
+    while (std::getline(file, line) && counter < max_chunk_size)
     {
         data_to_publish += line + "\n";
         counter++;

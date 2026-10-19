@@ -17,7 +17,10 @@
 std::atomic<bool> running{true};
 
 // Maximum number of telemetry records retained in local storage before FIFO eviction
-const int MAX_RECORDS = 50;
+const int MAX_STORAGE_RECORDS = 500;
+
+// Maximum number of telemetry records transmitted per MQTT publish payload
+const int MAX_CHUNK_SIZE = 100; 
 
 /**
  * @brief Handles the SIGINT signal (triggered by Ctrl+C) for graceful shutdown.
@@ -130,7 +133,7 @@ int main()
                 data,
                 0.0,
                 0.0,
-                MAX_RECORDS);
+                MAX_STORAGE_RECORDS);
         }
         else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::speed))
         {
@@ -140,7 +143,7 @@ int main()
                 0.0,
                 data,
                 0.0,
-                MAX_RECORDS);
+                MAX_STORAGE_RECORDS);
         }
         else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::coolantTemp))
         {
@@ -150,14 +153,14 @@ int main()
                 0.0,
                 0.0,
                 data,
-                MAX_RECORDS);
+                MAX_STORAGE_RECORDS);
         }
 
         // Store-and-Forward: flush buffered records to broker only if successfully buffered and connected
         if (!save_ok) {
             std::cerr << "[Storage] An error occurred while saving telemetry data." << std::endl;
         } else if (is_connected) {
-            send_telemetry(mosq, MAX_RECORDS);
+            send_telemetry(mosq, MAX_CHUNK_SIZE);
         }
     }
 
