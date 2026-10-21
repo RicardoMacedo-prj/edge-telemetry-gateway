@@ -12,15 +12,13 @@
 #include "storage.hpp"
 #include "decoder.hpp"
 #include "mqtt_client.hpp"
+#include "gatewayConfig.hpp"
 
 // Atomic flag controlling the main event loop lifecycle
 std::atomic<bool> running{true};
 
-// Maximum number of telemetry records retained in local storage before FIFO eviction
-const int MAX_STORAGE_RECORDS = 500;
-
-// Maximum number of telemetry records transmitted per MQTT publish payload
-const int MAX_CHUNK_SIZE = 100; 
+// Runtime gateway configuration holding network and storage parameters
+GatewayConfig config;
 
 /**
  * @brief Handles the SIGINT signal (triggered by Ctrl+C) for graceful shutdown.
@@ -41,6 +39,12 @@ int main()
     // Register the signal handler for graceful shutdown on Ctrl+C
     std::signal(SIGINT, handle_sigint);
 
+    if (!loadConfig("config/gateway.conf", config))
+    {
+        std::cerr << "[Gateway] Configuration failure. Exiting process." << std::endl;
+        return 1;
+    }
+
     // Initialize the Mosquitto MQTT library
     mosquitto_lib_init();
 
@@ -55,8 +59,8 @@ int main()
     // Configure local UDP socket address (localhost:4000)
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(4000);
-    inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr);
+    addr.sin_port = htons(config.SOCKET_PORT);
+    inet_pton(AF_INET, config.SOCKET_ADDRESS.c_str(), &addr.sin_addr);
     socklen_t addr_len = sizeof(addr);
 
     if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
@@ -92,7 +96,7 @@ int main()
     mosquitto_loop_start(mosq);
     
     // Connect to local Mosquitto MQTT broker
-    int rc = mosquitto_connect(mosq, "127.0.0.1", 1883, 60);
+    int rc = mosquitto_connect(mosq, config.MOSQUITTO_BROKER_ADDRESS.c_str(), config.MOSQUITTO_BROKER_PORT, 60);
     if (rc != MOSQ_ERR_SUCCESS)
     {
         std::cerr << "[Gateway] Failed to initiate connection: " << mosquitto_strerror(rc) << std::endl;
@@ -133,7 +137,7 @@ int main()
                 data,
                 0.0,
                 0.0,
-                MAX_STORAGE_RECORDS);
+                config.MAX_STORAGE_RECORDS);
         }
         else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::speed))
         {
@@ -143,7 +147,7 @@ int main()
                 0.0,
                 data,
                 0.0,
-                MAX_STORAGE_RECORDS);
+                config.MAX_STORAGE_RECORDS);
         }
         else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::coolantTemp))
         {
@@ -153,14 +157,14 @@ int main()
                 0.0,
                 0.0,
                 data,
-                MAX_STORAGE_RECORDS);
+                config.MAX_STORAGE_RECORDS);
         }
 
         // Store-and-Forward: flush buffered records to broker only if successfully buffered and connected
         if (!save_ok) {
             std::cerr << "[Storage] An error occurred while saving telemetry data." << std::endl;
         } else if (is_connected) {
-            send_telemetry(mosq, MAX_CHUNK_SIZE);
+            send_telemetry(mosq, config.MAX_CHUNK_SIZE);
         }
     }
 
