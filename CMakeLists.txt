@@ -20,6 +20,7 @@ add_executable(gateway
     storage.cpp
     decoder.cpp
     mqtt_client.cpp
+    gatewayConfig.cpp
 )
 
 # Link Mosquitto library to gateway
@@ -37,3 +38,8 @@ add_test(NAME TestCan COMMAND test_can)
 add_executable(test_storage tests/test_storage.cpp storage.cpp)
 target_include_directories(test_storage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestStorage COMMAND test_storage)
+
+# Gateway config test executable
+add_executable(test_config tests/test_config.cpp gatewayConfig.cpp)
+target_include_directories(test_config PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME TestConfig COMMAND test_config)
