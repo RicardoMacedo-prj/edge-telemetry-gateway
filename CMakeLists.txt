@@ -24,6 +24,7 @@ add_executable(gateway
     decoder.cpp
     mqtt_client.cpp
     gatewayConfig.cpp
+    rules.cpp
 )
 
 # Link Mosquitto library to gateway

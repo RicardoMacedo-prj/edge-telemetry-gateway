@@ -14,9 +14,9 @@
 #include "car.hpp"
 
 /**
- * @brief Decodes an 8-byte OBD-II CAN frame and returns timestamped metric.
+ * @brief Decodes an 8-byte OBD-II CAN frame into timestamp, metric value, and PID type.
  */
-std::pair<long long, double> decode_can(CanFrame canFrame)
+std::tuple<long long, double, PID_standart> decode_can(CanFrame canFrame)
 {
     // Generate timestamp in milliseconds since Unix epoch
     long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -29,23 +29,23 @@ std::pair<long long, double> decode_can(CanFrame canFrame)
         uint16_t rpmData = (static_cast<uint16_t>(canFrame.data[2]) << 8) | static_cast<uint16_t>(canFrame.data[3]);
         double rpm = static_cast<double>(rpmData) / 4.0;
         
-        return {timestamp, rpm};
+        return {timestamp, rpm, PID_standart::rpm};
     }
     else if (canFrame.data[1] == static_cast<uint8_t>(PID_standart::speed))
     {
         // Speed is represented as a direct 1-byte value (0 to 255 km/h)
         double speed = static_cast<double>(canFrame.data[2]);
 
-        return {timestamp, speed};
+        return {timestamp, speed, PID_standart::speed};
     }
     else if (canFrame.data[1] == static_cast<uint8_t>(PID_standart::coolantTemp))
     {
         // Coolant temperature uses a -40 offset to support negative temperatures (-40 C to +215 C)
         double coolantTemp = static_cast<double>(canFrame.data[2]) - 40.0;
 
-        return {timestamp, coolantTemp};
+        return {timestamp, coolantTemp, PID_standart::coolantTemp};
     }
 
     // Default fallback if an unrecognized PID is received
-    return {timestamp, 0.0};
+    return {timestamp, 0.0, PID_standart::unknown};
 }

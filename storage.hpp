@@ -5,6 +5,9 @@
 #include <vector>
 #include "gatewayConfig.hpp"
 
+/**
+ * @brief Represents a single decoded telemetry record stored in memory.
+ */
 struct TelemetryRecord 
 {
     int id;
@@ -14,6 +17,9 @@ struct TelemetryRecord
     double coolantTemp;
 };
 
+/**
+ * @brief Holds a batch of telemetry records and the count of items to publish.
+ */
 struct DataToPublish
 {
     std::vector<TelemetryRecord> data;
@@ -47,16 +53,14 @@ bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, d
  */
 void read_telemetry_csv();
 
-/*
+/**
  * @brief Reads up to max_chunk_size pending telemetry records for transmission.
  * 
  * Does not modify the file; simply reads the oldest batch of records to prepare
  * for MQTT publishing.
  * 
  * @param max_chunk_size Maximum number of records to retrieve in the batch (defaults to 100).
- * @return A pair containing:
- *         - first: String containing concatenated lines to publish.
- *         - second: Count of lines included in the batch.
+ * @return DataToPublish struct containing the vector of records and count.
  */
 DataToPublish get_data_to_publish(int max_chunk_size = 100);
 

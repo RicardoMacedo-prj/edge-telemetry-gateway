@@ -52,6 +52,7 @@ void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
         return;
     }
 
+    // Serialize telemetry records into a JSON array
     using json = nlohmann::json;
     json records = json::array();
     for (const auto& record : result.data)
@@ -67,7 +68,7 @@ void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
 
     std::string payload = records.dump();
     
-    int rc = mosquitto_publish(mosq, nullptr, "car/telemetry", payload.length(), payload.c_str(), 1, false);
+    int rc = mosquitto_publish(mosq, nullptr, "vehicle/telemetry", payload.length(), payload.c_str(), 1, false);
 
     if (rc != MOSQ_ERR_SUCCESS)
     {
@@ -78,4 +79,27 @@ void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
         remove_sent_data(result.counter);
     }
 
+}
+
+/**
+ * @brief Publishes an alert payload to the MQTT broker.
+ */
+void send_alert_telemetry(struct mosquitto *mosq, double data, std::string alert_type, double threshold, long long timestamp)
+{
+    using json = nlohmann::json;
+    json alertRecord = {
+        {"alert", alert_type},
+        {"value", data},
+        {"threshold", threshold},
+        {"timestamp", timestamp}
+    };
+
+    std::string payload = alertRecord.dump();
+    
+    int rc = mosquitto_publish(mosq, nullptr, "vehicle/alerts/critical", payload.length(), payload.c_str(), 1, false);
+
+    if (rc != MOSQ_ERR_SUCCESS)
+    {
+        std::cerr << "Error publishing alert: " << mosquitto_strerror(rc) << std::endl;
+    }
 }
