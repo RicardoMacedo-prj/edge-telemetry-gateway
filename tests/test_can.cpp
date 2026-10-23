@@ -11,7 +11,7 @@ void test_decode_rpm()
     frame.data[2] = 0x27;
     frame.data[3] = 0x11;
 
-    auto [timestamp, rpm] = decode_can(frame);
+    auto [timestamp, rpm, pid] = decode_can(frame);
 
     assert(rpm == 2500.25);
 }
@@ -22,7 +22,7 @@ void test_decode_speed()
     frame.data[1] = static_cast<uint8_t>(PID_standart::speed);
     frame.data[2] = 85;
 
-    auto [timestamp, speed] = decode_can(frame);
+    auto [timestamp, speed, pid] = decode_can(frame);
     assert(speed == 85.0);
 }
 
@@ -32,7 +32,7 @@ void test_decode_coolante_positive()
     frame.data[1] = static_cast<uint8_t>(PID_standart::coolantTemp);
     frame.data[2] = 130;
 
-    auto [timestamp, temp] = decode_can(frame);
+    auto [timestamp, temp, pid] = decode_can(frame);
     assert(temp == 90.0);
 }
 
@@ -42,7 +42,7 @@ void test_decode_coolante_negative()
     frame.data[1] = static_cast<uint8_t>(PID_standart::coolantTemp);
     frame.data[2] = 30;
 
-    auto [timestamp, temp] = decode_can(frame);
+    auto [timestamp, temp, pid] = decode_can(frame);
     assert(temp == -10.0);
 }
 

@@ -21,9 +21,10 @@ enum class CarState
 // Standard OBD-II Parameter IDs (SAE J1979 standard)
 enum class PID_standart
 {
+    unknown = 0x00,    // Unrecognized or unsupported PID
     rpm = 0x0C,        // Engine RPM (2 bytes response)
     speed = 0x0D,      // Vehicle Speed (1 byte response)
-    coolantTemp = 0x05 // Engine Coolant Temperature (-40 C offset)
+    coolantTemp = 0x05 // Engine Coolant Temperature (1 byte response)
 };
 
 // Standard 8-byte CAN Bus message payload

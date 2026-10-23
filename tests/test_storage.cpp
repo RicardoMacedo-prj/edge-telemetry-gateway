@@ -50,8 +50,8 @@ void test_chunk_publish_and_remove()
     // Remaining records must be 4 and 5
     auto remaining_result = get_data_to_publish(10);
     assert(remaining_result.counter == 2);
-    assert(remaining_result.data[0].id = 4);
-    assert(remaining_result.data[1].id = 5);
+    assert(remaining_result.data[0].id == 4);
+    assert(remaining_result.data[1].id == 5);
 
     clear_telemetry_csv();
 }

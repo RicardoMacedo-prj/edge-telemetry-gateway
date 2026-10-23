@@ -13,6 +13,7 @@
 #include "decoder.hpp"
 #include "mqtt_client.hpp"
 #include "gatewayConfig.hpp"
+#include "rules.hpp"
 
 // Atomic flag controlling the main event loop lifecycle
 std::atomic<bool> running{true};
@@ -124,8 +125,22 @@ int main()
             continue;
         }
 
-        // Decode incoming CAN frame into timestamp and metric value
-        auto [timestamp, data] = decode_can(receiveBuffer);
+        // Decode incoming CAN frame into timestamp, metric value, and PID type
+        auto [timestamp, data, PID] = decode_can(receiveBuffer);
+
+        // Ignore unrecognized or unsupported sensor PIDs
+        if (PID == PID_standart::unknown)
+        {
+            continue;
+        }
+
+        // Evaluate edge rules and publish alert if safety threshold was violated
+        auto [is_alert, alert_type, threshold] = check_alert(PID, data);
+        if (is_alert)
+        {
+            send_alert_telemetry(mosq, data, alert_type, threshold, timestamp);
+        }
+
         bool save_ok = false;
 
         // Route decoded value into local CSV storage based on PID type

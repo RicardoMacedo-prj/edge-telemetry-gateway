@@ -108,6 +108,7 @@ DataToPublish get_data_to_publish(int max_chunk_size)
         TelemetryRecord record;
         
         int metric = 0;
+        // Parse comma-separated values into record fields
         while (std::getline (ss, value, ','))
         {
             switch (metric)
