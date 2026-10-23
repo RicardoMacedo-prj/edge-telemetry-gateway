@@ -8,6 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Enable compiler warnings
 add_compile_options(-Wall -Wextra)
 
+# Include third-party headers
+include_directories(external)
+
 # Find Mosquitto library
 find_library(MOSQUITTO_LIB mosquitto REQUIRED)
 

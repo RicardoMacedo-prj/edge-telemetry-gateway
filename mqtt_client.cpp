@@ -3,6 +3,7 @@
 #include <string>
 #include <mosquitto.h>
 #include "storage.hpp"
+#include "nlohmann/json.hpp"
 
 /**
  * @brief Callback triggered when broker acknowledges connection.
@@ -44,14 +45,29 @@ void on_disconnect(struct mosquitto * /*mosq*/, void *userdata, int /*rc*/)
  */
 void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
 {
-    auto [data, counter] = get_data_to_publish(max_chunk_size);
+    auto result = get_data_to_publish(max_chunk_size);
 
-    if (data.empty())
+    if (result.data.empty())
     {
         return;
     }
 
-    int rc = mosquitto_publish(mosq, nullptr, "car/telemetry", data.length(), data.c_str(), 1, false);
+    using json = nlohmann::json;
+    json records = json::array();
+    for (const auto& record : result.data)
+    {
+        records.push_back({
+            {"id", record.id},
+            {"timestamp", record.timestamp},
+            {"rpm", record.rpm},
+            {"speed", record.speed},
+            {"coolantTemp", record.coolantTemp}
+        });
+    }
+
+    std::string payload = records.dump();
+    
+    int rc = mosquitto_publish(mosq, nullptr, "car/telemetry", payload.length(), payload.c_str(), 1, false);
 
     if (rc != MOSQ_ERR_SUCCESS)
     {
@@ -59,6 +75,7 @@ void send_telemetry(struct mosquitto *mosq, int max_chunk_size)
     }
     else
     {
-        remove_sent_data(counter);
+        remove_sent_data(result.counter);
     }
+
 }
