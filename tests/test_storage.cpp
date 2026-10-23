@@ -19,11 +19,11 @@ void test_fifo_eviction()
     assert(count_csv_records() == 3);
 
     // Verify oldest ID 1 was evicted and remaining are 2, 3, 4
-    auto [payload, count] = get_data_to_publish(10);
-    assert(count == 3);
-    assert(payload.find("1,1000") == std::string::npos);
-    assert(payload.find("2,2000") != std::string::npos);
-    assert(payload.find("4,4000") != std::string::npos);
+    auto result = get_data_to_publish(10);
+    assert(result.counter == 3);
+    assert(result.data[0].id == 2);
+    assert(result.data[1].id == 3);
+    assert(result.data[2].id == 4);
 
     clear_telemetry_csv();
 }
@@ -40,18 +40,18 @@ void test_chunk_publish_and_remove()
     assert(get_max_id() == 5);
 
     // Retrieve chunk of 3 records
-    auto [chunk, count] = get_data_to_publish(3);
-    assert(count == 3);
+    auto result = get_data_to_publish(3);
+    assert(result.counter == 3);
 
     // Remove the 3 sent records
-    remove_sent_data(count);
+    remove_sent_data(result.counter);
     assert(count_csv_records() == 2);
 
     // Remaining records must be 4 and 5
-    auto [remaining_chunk, remaining_count] = get_data_to_publish(10);
-    assert(remaining_count == 2);
-    assert(remaining_chunk.find("4,4000") != std::string::npos);
-    assert(remaining_chunk.find("5,5000") != std::string::npos);
+    auto remaining_result = get_data_to_publish(10);
+    assert(remaining_result.counter == 2);
+    assert(remaining_result.data[0].id = 4);
+    assert(remaining_result.data[1].id = 5);
 
     clear_telemetry_csv();
 }

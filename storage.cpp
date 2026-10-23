@@ -1,6 +1,7 @@
 #include "storage.hpp"
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 
 /**
@@ -92,23 +93,56 @@ void read_telemetry_csv()
 /**
  * @brief Reads up to max_chunk_size stored records from telemetry.csv to prepare an MQTT batch.
  */
-std::pair<std::string, int> get_data_to_publish(int max_chunk_size)
+DataToPublish get_data_to_publish(int max_chunk_size)
 {
     std::ifstream file("telemetry.csv");
-
-    std::string data_to_publish;
+    
     std::string line;
-    int counter = 0;
+    DataToPublish result;
 
     // Read up to max_chunk_size records from the top of the file
-    while (std::getline(file, line) && counter < max_chunk_size)
+    while (std::getline(file, line) && result.counter < max_chunk_size)
     {
-        data_to_publish += line + "\n";
-        counter++;
-    }
+        std::stringstream ss(line);
+        std::string value;
+        TelemetryRecord record;
+        
+        int metric = 0;
+        while (std::getline (ss, value, ','))
+        {
+            switch (metric)
+            {
+                case 0:
+                    record.id = stoi(value);
+                    break;
 
+                case 1:
+                    record.timestamp = stoll(value);
+                    break;
+
+                case 2:
+                    record.rpm = stod(value);
+                    break;
+
+                case 3:
+                    record.speed = stod(value);
+                    break;
+
+                case 4:
+                    record.coolantTemp = stod(value);
+                    break;
+
+                default:
+                    break;
+            }
+            metric++;
+        }
+        result.data.push_back(record);
+        result.counter++;
+    }
     file.close();
-    return {data_to_publish, counter};
+
+    return result;
 }
 
 /**

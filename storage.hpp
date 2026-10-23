@@ -2,6 +2,23 @@
 
 #include <string>
 #include <utility>
+#include <vector>
+#include "gatewayConfig.hpp"
+
+struct TelemetryRecord 
+{
+    int id;
+    long long timestamp;
+    double rpm;
+    double speed;
+    double coolantTemp;
+};
+
+struct DataToPublish
+{
+    std::vector<TelemetryRecord> data;
+    int counter = 0;
+};
 
 /**
  * @brief Counts the total number of telemetry records currently stored in telemetry.csv.
@@ -30,7 +47,7 @@ bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, d
  */
 void read_telemetry_csv();
 
-/**
+/*
  * @brief Reads up to max_chunk_size pending telemetry records for transmission.
  * 
  * Does not modify the file; simply reads the oldest batch of records to prepare
@@ -41,7 +58,7 @@ void read_telemetry_csv();
  *         - first: String containing concatenated lines to publish.
  *         - second: Count of lines included in the batch.
  */
-std::pair<std::string, int> get_data_to_publish(int max_chunk_size = 100);
+DataToPublish get_data_to_publish(int max_chunk_size = 100);
 
 /**
  * @brief Removes the specified number of sent records from the top of telemetry.csv.
