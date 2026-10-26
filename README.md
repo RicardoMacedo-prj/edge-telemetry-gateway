@@ -48,7 +48,7 @@ flowchart LR
 ```text
 ├── CMakeLists.txt          # Root CMake build configuration with CTest integration
 ├── runner.py               # Process orchestrator and execution runner
-├── car.hpp / car.cpp       # Vehicle physics engine and CAN frame emitter
+├── vehicle.hpp / vehicle.cpp       # Vehicle physics engine and CAN frame emitter
 ├── decoder.hpp / decoder.cpp # Bitwise CAN OBD-II message decoder
 ├── storage.hpp / storage.cpp # CSV persistence buffer with FIFO eviction
 ├── mqtt_client.hpp / .cpp  # Mosquitto MQTT client wrapper with QoS 1

@@ -2,7 +2,7 @@
 #include <cassert>
 #include <cmath>
 #include "decoder.hpp"
-#include "car.hpp"
+#include "vehicle.hpp"
 
 void test_decode_rpm()
 {

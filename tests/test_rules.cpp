@@ -1,7 +1,7 @@
 #include <cassert>
 #include <tuple>
 #include "rules.hpp"
-#include "car.hpp"
+#include "vehicle.hpp"
 
 void test_rpm_rules()
 {

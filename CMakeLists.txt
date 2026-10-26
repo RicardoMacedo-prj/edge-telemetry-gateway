@@ -9,22 +9,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra)
 
 # Include third-party headers
-include_directories(external)
+include_directories(src external)
 
 # Find Mosquitto library
 find_library(MOSQUITTO_LIB mosquitto REQUIRED)
 
 # Vehicle simulation executable
-add_executable(car car.cpp)
+add_executable(car src/vehicle.cpp)
 
 # Telemetry gateway executable
 add_executable(gateway
-    main.cpp
-    storage.cpp
-    decoder.cpp
-    mqtt_client.cpp
-    gatewayConfig.cpp
-    rules.cpp
+    src/main.cpp
+    src/storage.cpp
+    src/decoder.cpp
+    src/mqtt_client.cpp
+    src/gatewayConfig.cpp
+    src/rules.cpp
 )
 
 # Link Mosquitto library to gateway
@@ -34,21 +34,21 @@ target_link_libraries(gateway PRIVATE ${MOSQUITTO_LIB})
 enable_testing()
 
 # CAN decoder test executable
-add_executable(test_can tests/test_can.cpp decoder.cpp)
+add_executable(test_can tests/test_can.cpp src/decoder.cpp)
 target_include_directories(test_can PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestCan COMMAND test_can)
 
 # Storage test executable
-add_executable(test_storage tests/test_storage.cpp storage.cpp)
+add_executable(test_storage tests/test_storage.cpp src/storage.cpp)
 target_include_directories(test_storage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestStorage COMMAND test_storage)
 
 # Gateway config test executable
-add_executable(test_config tests/test_config.cpp gatewayConfig.cpp)
+add_executable(test_config tests/test_config.cpp src/gatewayConfig.cpp)
 target_include_directories(test_config PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestConfig COMMAND test_config)
 
 # Rules test executable
-add_executable(test_rules tests/test_rules.cpp rules.cpp)
+add_executable(test_rules tests/test_rules.cpp src/rules.cpp)
 target_include_directories(test_rules PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestRules COMMAND test_rules)

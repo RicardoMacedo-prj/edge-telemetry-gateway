@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <string>
-#include "car.hpp"
+#include "vehicle.hpp"
 
 /**
  * @brief Decodes an 8-byte OBD-II CAN frame into timestamp, metric value, and PID type.
