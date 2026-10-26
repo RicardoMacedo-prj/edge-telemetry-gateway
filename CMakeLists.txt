@@ -47,3 +47,8 @@ add_test(NAME TestStorage COMMAND test_storage)
 add_executable(test_config tests/test_config.cpp gatewayConfig.cpp)
 target_include_directories(test_config PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestConfig COMMAND test_config)
+
+# Rules test executable
+add_executable(test_rules tests/test_rules.cpp rules.cpp)
+target_include_directories(test_rules PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME TestRules COMMAND test_rules)
