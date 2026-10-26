@@ -2,7 +2,7 @@
 
 #include <tuple>
 #include <string>
-#include "car.hpp"
+#include "vehicle.hpp"
 
 /**
  * @brief Decodes an 8-byte OBD-II CAN frame into a timestamp and sensor metric.

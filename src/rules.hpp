@@ -2,7 +2,7 @@
 
 #include <iostream>
 #include <string>
-#include "car.hpp"
+#include "vehicle.hpp"
 
 /**
  * @brief Evaluates whether a telemetry metric exceeds critical safety thresholds.
