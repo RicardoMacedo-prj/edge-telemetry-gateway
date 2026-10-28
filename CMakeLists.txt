@@ -25,6 +25,9 @@ add_executable(gateway
     src/mqtt_client.cpp
     src/gatewayConfig.cpp
     src/rules.cpp
+    src/thread_safe_queue.cpp
+    src/producer.cpp
+    src/consumer.cpp
 )
 
 # Link Mosquitto library to gateway
