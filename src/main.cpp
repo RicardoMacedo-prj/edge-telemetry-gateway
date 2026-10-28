@@ -1,5 +1,4 @@
 #include <iostream>
-#include <chrono>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -7,13 +6,12 @@
 #include <atomic>
 #include <mosquitto.h>
 #include <unistd.h>
-#include <string>
-#include "vehicle.hpp"
-#include "storage.hpp"
-#include "decoder.hpp"
-#include "mqtt_client.hpp"
+#include <thread>
 #include "gatewayConfig.hpp"
-#include "rules.hpp"
+#include "mqtt_client.hpp"
+#include "thread_safe_queue.hpp"
+#include "producer.hpp"
+#include "consumer.hpp"
 
 // Atomic flag controlling the main event loop lifecycle
 std::atomic<bool> running{true};
@@ -103,85 +101,17 @@ int main()
         std::cerr << "[Gateway] Failed to initiate connection: " << mosquitto_strerror(rc) << std::endl;
     }
 
-    // Buffer to hold incoming 8-byte CAN frame
-    CanFrame receiveBuffer;
+    // Shared FIFO queue connecting the producer and consumer threads
+    ThreadSafeQueue queue;
 
-    // Load highest record ID once at startup to keep sequential auto-incrementing in memory
-    long long max_id = get_max_id();
-    if (max_id == -1)
-    {
-        std::cout << "[Decoder] No records found in telemetry.csv" << std::endl;
-        max_id = 0;
-    }
+    // Launch producer thread (UDP frame reception) and consumer thread (decoding & storage)
+    std::thread producer(CanReceiverLoop, sock, addr, addr_len, std::ref(queue), std::ref(running));
+    std::thread processor(CanProcessorLoop, mosq, std::ref(is_connected), 
+                        std::ref(queue), config, std::ref(running));
 
-    // Main telemetry ingestion and forwarding loop
-    while (running)
-    {
-        ssize_t bytes_received = recvfrom(sock, receiveBuffer.data, sizeof(receiveBuffer.data), 0, (struct sockaddr *)&addr, &addr_len);
-
-        // If timeout occurred or no packet arrived, re-evaluate loop condition
-        if (bytes_received < 0)
-        {
-            continue;
-        }
-
-        // Decode incoming CAN frame into timestamp, metric value, and PID type
-        auto [timestamp, data, PID] = decode_can(receiveBuffer);
-
-        // Ignore unrecognized or unsupported sensor PIDs
-        if (PID == PID_standart::unknown)
-        {
-            continue;
-        }
-
-        // Evaluate edge rules and publish alert if safety threshold was violated
-        auto [is_alert, alert_type, threshold] = check_alert(PID, data);
-        if (is_alert)
-        {
-            send_alert_telemetry(mosq, data, alert_type, threshold, timestamp);
-        }
-
-        bool save_ok = false;
-
-        // Route decoded value into local CSV storage based on PID type
-        if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::rpm))
-        {   
-            save_ok = save_telemetry_csv(
-                max_id += 1,
-                timestamp,
-                data,
-                0.0,
-                0.0,
-                config.MAX_STORAGE_RECORDS);
-        }
-        else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::speed))
-        {
-            save_ok = save_telemetry_csv(
-                max_id += 1,
-                timestamp,
-                0.0,
-                data,
-                0.0,
-                config.MAX_STORAGE_RECORDS);
-        }
-        else if (receiveBuffer.data[1] == static_cast<uint8_t>(PID_standart::coolantTemp))
-        {
-            save_ok = save_telemetry_csv(
-                max_id += 1,
-                timestamp,
-                0.0,
-                0.0,
-                data,
-                config.MAX_STORAGE_RECORDS);
-        }
-
-        // Store-and-Forward: flush buffered records to broker only if successfully buffered and connected
-        if (!save_ok) {
-            std::cerr << "[Storage] An error occurred while saving telemetry data." << std::endl;
-        } else if (is_connected) {
-            send_telemetry(mosq, config.MAX_CHUNK_SIZE);
-        }
-    }
+    // Wait for both worker threads to terminate cleanly on shutdown
+    producer.join();
+    processor.join();
 
     // Close the UDP socket
     close(sock);
