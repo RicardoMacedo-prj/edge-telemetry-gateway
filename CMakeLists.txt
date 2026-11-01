@@ -55,3 +55,8 @@ add_test(NAME TestConfig COMMAND test_config)
 add_executable(test_rules tests/test_rules.cpp src/rules.cpp)
 target_include_directories(test_rules PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME TestRules COMMAND test_rules)
+
+# ThreadSafeQueue test executable
+add_executable(test_queue tests/test_queue.cpp src/thread_safe_queue.cpp)
+target_include_directories(test_queue PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME TestQueue COMMAND test_queue)
