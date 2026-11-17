@@ -12,6 +12,7 @@
 #include "thread_safe_queue.hpp"
 #include "producer.hpp"
 #include "consumer.hpp"
+#include "storage.hpp"
 
 // Atomic flag controlling the main event loop lifecycle
 std::atomic<bool> running{true};
@@ -115,6 +116,9 @@ int main()
 
     // Close the UDP socket
     close(sock);
+
+    // Close database connection
+    close_storage();
 
     // Clean up Mosquitto client and library resources
     mosquitto_loop_stop(mosq, true);

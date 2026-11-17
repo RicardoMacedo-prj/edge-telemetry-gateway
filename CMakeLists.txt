@@ -11,8 +11,9 @@ add_compile_options(-Wall -Wextra)
 # Include third-party headers
 include_directories(src external)
 
-# Find Mosquitto library
+# Find essencial libraries
 find_library(MOSQUITTO_LIB mosquitto REQUIRED)
+find_library(SQLITE_LIB sqlite3 REQUIRED)
 
 # Vehicle simulation executable
 add_executable(car src/vehicle.cpp)
@@ -30,8 +31,8 @@ add_executable(gateway
     src/consumer.cpp
 )
 
-# Link Mosquitto library to gateway
-target_link_libraries(gateway PRIVATE ${MOSQUITTO_LIB})
+# Link libraries to gateway
+target_link_libraries(gateway PRIVATE ${MOSQUITTO_LIB} ${SQLITE_LIB})
 
 # Enable testing support
 enable_testing()
@@ -44,6 +45,7 @@ add_test(NAME TestCan COMMAND test_can)
 # Storage test executable
 add_executable(test_storage tests/test_storage.cpp src/storage.cpp)
 target_include_directories(test_storage PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(test_storage PRIVATE ${SQLITE_LIB})
 add_test(NAME TestStorage COMMAND test_storage)
 
 # Gateway config test executable

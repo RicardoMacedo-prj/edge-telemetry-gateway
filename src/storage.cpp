@@ -3,216 +3,284 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <sqlite3.h>
+
+static sqlite3* db = nullptr;
+
+void init_storage(const std::string& file)
+{
+    if (db != nullptr)
+    {
+        return;
+    }
+
+    int rc = sqlite3_open(file.c_str(), &db);
+
+    if (rc != SQLITE_OK)
+    {
+        std::cerr << "[Storage] Error opening database: " << sqlite3_errmsg(db) << std::endl;
+        return;
+    }
+
+    const char* sql =
+        "CREATE TABLE IF NOT EXISTS telemetry ("
+        "    id INTEGER PRIMARY KEY,"
+        "    timestamp INTEGER NOT NULL,"
+        "    rpm REAL NOT NULL,"
+        "    speed REAL NOT NULL,"
+        "    coolant_temp REAL NOT NULL"
+        ");"
+        "PRAGMA journal_mode=WAL;";
+
+    char* errMsg = nullptr;
+    rc = sqlite3_exec(db, sql, nullptr, nullptr, &errMsg);
+    if (rc != SQLITE_OK)
+    {
+        std::cerr << "[Storage] SQL error: " << errMsg << std::endl;
+        sqlite3_free(errMsg);
+    }
+}
+
+void close_storage()
+{
+    if (db != nullptr)
+    {
+        sqlite3_close(db);
+        db = nullptr;
+    }
+}
 
 /**
- * @brief Counts the total number of lines/records currently stored in telemetry.csv.
- * @return Line count.
+ * @brief Counts the total number of telemetry records stored in the database.
+ * @return Number of records stored in the database, or -1 on error.
  */
 int count_csv_records()
 {
-    std::ifstream file("telemetry.csv");
-    if (!file.is_open())
+    init_storage();
+
+    const char* sql = "SELECT COUNT(*) FROM telemetry;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        return 0;
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
+        return -1;
+    }
+    
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        count = sqlite3_column_int(stmt, 0);
     }
 
-    int count = 0;
-    std::string line;
-    while (std::getline(file, line))
-    {
-        ++count;
-    }
-    file.close();
+    sqlite3_finalize(stmt);
     return count;
 }
 
 /**
- * @brief Appends a telemetry record to telemetry.csv.
- * Enforces a strict FIFO retention policy by evicting the oldest record when full.
+ * @brief Inserts a telemetry record into the database table, enforcing a FIFO limit.
  */
 bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp, int max_storage_records)
 {
-    // FIFO eviction: if buffer is at capacity, discard the oldest line
+    init_storage();
+
+    // FIFO eviction: if buffer is at capacity, discard the oldest record
     if (count_csv_records() >= max_storage_records)
     {
         std::cerr << "Maximum record limit reached. Evicting oldest record." << std::endl;
-        std::ifstream file("telemetry.csv");
 
-        std::string first_line;
-        std::getline(file, first_line); // Read and discard oldest record
+        const char* sqlDel =
+        "DELETE FROM telemetry "
+        "WHERE id IN ("
+        "    SELECT id FROM telemetry "
+        "    ORDER BY id ASC "
+        "    LIMIT 1"
+        ");";
 
-        std::string line;
-        std::string remaining_data;
-        while (std::getline(file, line))
+        char* errMsgDel = nullptr;
+        int rc = sqlite3_exec(db, sqlDel, nullptr, nullptr, &errMsgDel);
+        if (rc != SQLITE_OK)
         {
-            remaining_data += line + "\n";
+            std::cerr << "[Storage] SQL error: " << errMsgDel << std::endl;
+            sqlite3_free(errMsgDel);
+            return false;
         }
-        file.close();
-
-        // Overwrite file with remaining data (oldest line removed)
-        std::ofstream file_out("telemetry.csv", std::ios::trunc);
-        file_out << remaining_data;
-        file_out.close();
     }
 
-    // Append the new telemetry record to the end of the file
-    std::ofstream file("telemetry.csv", std::ios::app);
-    if (!file.is_open())
+    const char* sqlAdd =
+    "INSERT INTO telemetry (id, timestamp, rpm, speed, coolant_temp) " 
+    "VALUES (?, ?, ?, ?, ?);";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sqlAdd, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        std::cerr << "Failed to open telemetry.csv!" << std::endl;
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
         return false;
     }
 
-    file << id << "," << timestamp << "," << rpm << "," << speed << "," << coolantTemp << std::endl;
-    file.close();
+    sqlite3_bind_int(stmt, 1, id);
+    sqlite3_bind_int64(stmt, 2, timestamp);
+    sqlite3_bind_double(stmt, 3, rpm);
+    sqlite3_bind_double(stmt, 4, speed);
+    sqlite3_bind_double(stmt, 5, coolantTemp);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+    {
+        std::cerr << "[Storage] Error on database insertion: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
     return true;
 }
 
 /**
- * @brief Reads and displays all stored records from telemetry.csv.
+ * @brief Reads and displays all stored records from the database table.
  */
 void read_telemetry_csv()
 {
-    std::ifstream file("telemetry.csv");
-    if (!file.is_open())
+    init_storage();
+
+    const char* sql = "SELECT * FROM telemetry;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        std::cerr << "Failed to open telemetry.csv!" << std::endl;
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
         return;
     }
 
-    std::string line;
-    std::cout << "Telemetry Data from CSV:" << std::endl;
-
-    while (std::getline(file, line))
+    while (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        std::cout << line << std::endl;
+        std::cout << 
+            sqlite3_column_int(stmt, 0) << ", " <<
+            sqlite3_column_int64(stmt, 1) << ", " <<
+            sqlite3_column_double(stmt, 2) << ", " <<
+            sqlite3_column_double(stmt, 3) << ", " <<
+            sqlite3_column_double(stmt, 4) << std::endl;
     }
-    file.close();
+
+    sqlite3_finalize(stmt);
 }
 
 /**
- * @brief Reads up to max_chunk_size stored records from telemetry.csv to prepare an MQTT batch.
+ * @brief Retrieves a batch of up to max_chunk_size records from the database to prepare an MQTT batch.
  */
 DataToPublish get_data_to_publish(int max_chunk_size)
 {
-    std::ifstream file("telemetry.csv");
-    
-    std::string line;
+    init_storage();
+
     DataToPublish result;
+    int counter = 0;
 
-    // Read up to max_chunk_size records from the top of the file
-    while (std::getline(file, line) && result.counter < max_chunk_size)
+    const char* sql =
+        "SELECT id, timestamp, rpm, speed, coolant_temp "
+        "FROM telemetry "
+        "ORDER BY id ASC "
+        "LIMIT ?;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        std::stringstream ss(line);
-        std::string value;
-        TelemetryRecord record;
-        
-        int metric = 0;
-        // Parse comma-separated values into record fields
-        while (std::getline (ss, value, ','))
-        {
-            switch (metric)
-            {
-                case 0:
-                    record.id = stoi(value);
-                    break;
-
-                case 1:
-                    record.timestamp = stoll(value);
-                    break;
-
-                case 2:
-                    record.rpm = stod(value);
-                    break;
-
-                case 3:
-                    record.speed = stod(value);
-                    break;
-
-                case 4:
-                    record.coolantTemp = stod(value);
-                    break;
-
-                default:
-                    break;
-            }
-            metric++;
-        }
-        result.data.push_back(record);
-        result.counter++;
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
+        return result;
     }
-    file.close();
 
+    sqlite3_bind_int(stmt, 1, max_chunk_size);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        TelemetryRecord record;
+
+        record.id = sqlite3_column_int(stmt, 0);
+        record.timestamp = sqlite3_column_int64(stmt, 1);
+        record.rpm = sqlite3_column_double(stmt, 2);
+        record.speed = sqlite3_column_double(stmt, 3);
+        record.coolantTemp = sqlite3_column_double(stmt, 4);
+        counter++;
+
+        result.data.push_back(record);
+    }
+
+    sqlite3_finalize(stmt);
+    result.counter = counter;
     return result;
 }
 
 /**
- * @brief Deletes successfully transmitted records from the beginning of telemetry.csv.
+ * @brief Deletes successfully transmitted records from the database table.
  */
 void remove_sent_data(int counter)
 {
-    std::ifstream file("telemetry.csv");
+    init_storage();
 
-    std::string data_to_rewrite;
-    std::string line;
+    const char* sql =
+    "DELETE FROM telemetry "
+    "WHERE id IN ("
+    "    SELECT id FROM telemetry "
+    "    ORDER BY id ASC "
+    "    LIMIT ?"
+    ");";
 
-    // Skip the first 'counter' lines that were successfully published
-    for (int i = 0; i < counter && std::getline(file, line); i++)
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
+        return;
     }
 
-    // Accumulate the remaining unsent lines
-    while (std::getline(file, line))
-    {
-        data_to_rewrite += line + "\n";
-    }
-
-    file.close();
-
-    // Overwrite the file with only the remaining un-transmitted data
-    std::ofstream file_out("telemetry.csv", std::ios::trunc);
-    file_out << data_to_rewrite;
-    file_out.close();
+    sqlite3_bind_int(stmt, 1, counter);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
 }
 
 /**
- * @brief Scans telemetry.csv to determine the highest existing record ID.
- * Used during startup so new records can continue auto-incrementing sequentially.
- * @return Highest record ID found, or -1 if the file is empty or missing.
+ * @brief Queries the database to determine the highest existing record ID.
+ * @return Highest record ID found, or -1 if the table is empty or on error.
  */
 long long get_max_id()
 {
-    std::ifstream file("telemetry.csv");
-    if (!file.is_open())
+    init_storage();
+
+    long long max_id = -1;
+
+    const char* sql = "SELECT COALESCE(MAX(id), -1) FROM telemetry;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
     {
-        std::cerr << "Failed to open telemetry.csv!" << std::endl;
+        std::cerr << "[Storage] Prepare error: " << sqlite3_errmsg(db) << std::endl;
         return -1;
     }
 
-    long long max_id = -1;
-    std::string line;
-    std::cout << "Telemetry Data from CSV:" << std::endl;
-
-    while (std::getline(file, line))
+    if (sqlite3_step(stmt) == SQLITE_ROW)
     {
-        std::cout << line << std::endl;
-        max_id = std::max(max_id, std::stoll(line.substr(0, line.find(','))));
+        max_id = sqlite3_column_int64(stmt, 0);
     }
-    file.close();
+
+    sqlite3_finalize(stmt);
     return max_id;
 }
 
 /**
- * @brief Clears all records from telemetry.csv by truncating the file to zero bytes.
+ * @brief Clears all records from the telemetry database table.
  */
 void clear_telemetry_csv()
 {
-    std::ofstream file("telemetry.csv", std::ios::trunc);
-    if (!file.is_open())
+    init_storage();
+    
+    const char* sql =
+    "DELETE FROM telemetry;";
+
+    char* errMsg = nullptr;
+    
+    int rc = sqlite3_exec(db, sql, nullptr, nullptr, &errMsg);
+    
+    if (rc != SQLITE_OK)
     {
-        std::cerr << "Failed to open telemetry.csv!" << std::endl;
-        return;
+        std::cerr << "[Storage] SQL error: " << errMsg << std::endl;
+        sqlite3_free(errMsg);
     }
-    file.close();
-    std::cout << "Telemetry CSV cleared." << std::endl;
 }
