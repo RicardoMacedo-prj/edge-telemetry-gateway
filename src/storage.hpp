@@ -27,16 +27,27 @@ struct DataToPublish
 };
 
 /**
- * @brief Counts the total number of telemetry records currently stored in telemetry.csv.
- * @return Number of lines/records in the file, or 0 if the file cannot be opened.
+ * @brief Initializes the SQLite database, creating the telemetry table and enabling WAL mode.
+ * @param file Database file path (defaults to "telemetry.db").
+ */
+void init_storage(const std::string& file = "telemetry.db");
+
+/**
+ * @brief Closes the SQLite database connection if open.
+ */
+void close_storage();
+
+/**
+ * @brief Counts the total number of telemetry records stored in the database.
+ * @return Number of records stored in the database, or -1 on error.
  */
 int count_csv_records();
 
 /**
- * @brief Appends a telemetry record to telemetry.csv enforcing a FIFO limit.
+ * @brief Inserts a telemetry record into the database, enforcing a FIFO limit.
  * 
- * If the current record count exceeds max_records, the oldest record is evicted
- * before appending the new record.
+ * If the current record count exceeds max_storage_records, the oldest record
+ * is evicted using an atomic SQL DELETE before inserting the new record.
  * 
  * @param id Unique record identifier.
  * @param timestamp Timestamp in milliseconds since Unix epoch.
@@ -49,15 +60,14 @@ int count_csv_records();
 bool save_telemetry_csv(int id, long long timestamp, double rpm, double speed, double coolantTemp, int max_storage_records);
 
 /**
- * @brief Reads and prints all telemetry records from telemetry.csv to standard output.
+ * @brief Reads and prints all stored telemetry records to standard output.
  */
 void read_telemetry_csv();
 
 /**
- * @brief Reads up to max_chunk_size pending telemetry records for transmission.
+ * @brief Retrieves a batch of up to max_chunk_size telemetry records for transmission.
  * 
- * Does not modify the file; simply reads the oldest batch of records to prepare
- * for MQTT publishing.
+ * Queries records ordered by ID ascending to prepare an MQTT batch payload.
  * 
  * @param max_chunk_size Maximum number of records to retrieve in the batch (defaults to 100).
  * @return DataToPublish struct containing the vector of records and count.
@@ -65,25 +75,23 @@ void read_telemetry_csv();
 DataToPublish get_data_to_publish(int max_chunk_size = 100);
 
 /**
- * @brief Removes the specified number of sent records from the top of telemetry.csv.
+ * @brief Deletes the specified number of sent records from the database.
  * 
- * Skips the first 'counter' lines and rewrites the remainder back to telemetry.csv.
- * 
- * @param counter Number of oldest records to discard after successful transmission.
+ * @param counter Number of transmitted records to remove.
  */
 void remove_sent_data(int counter);
 
 /**
- * @brief Scans telemetry.csv to determine the highest existing record ID.
+ * @brief Queries the highest existing record ID in the database.
  * 
- * Used during gateway startup to resume sequential ID auto-incrementing in memory.
+ * Used during gateway startup so sequential ID auto-incrementing resumes correctly.
  * 
- * @return Highest record ID found, or -1 if the file is empty or missing.
+ * @return Highest record ID found, or -1 if the table is empty or on error.
  */
 long long get_max_id();
 
 /**
- * @brief Truncates telemetry.csv, removing all stored records.
+ * @brief Deletes all records from the telemetry database table.
  */
 void clear_telemetry_csv();
 
